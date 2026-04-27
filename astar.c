@@ -1,98 +1,109 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
 
 #define LINHAS 12
 #define COLUNAS 15
 
 int grid[LINHAS][COLUNAS] = {0};
+int caminho[LINHAS][COLUNAS] = {0};
 
-void imprimirMapa(int caminho[LINHAS][COLUNAS], int inicioX, int inicioY, int objetivoX, int objetivoY){
+typedef struct {
+    int g, h, f;
+    int paiX, paiY;
+    int aberto, fechado;
+} No;
 
-    printf("\nMapa do armazem:\n\n");
+int manhattan(int x1, int y1, int x2, int y2) {
+    return abs(x1 - x2) + abs(y1 - y2);
+}
 
-    for(int i=0;i<LINHAS;i++){
-        for(int j=0;j<COLUNAS;j++){
+void reconstruir(No nos[LINHAS][COLUNAS], int x, int y) {
+    while (!(nos[x][y].paiX == x && nos[x][y].paiY == y)) {
+        caminho[x][y] = 1;
+        int px = nos[x][y].paiX;
+        int py = nos[x][y].paiY;
+        x = px; y = py;
+    }
+}
 
-            if(i == inicioX && j == inicioY)
-                printf(" S ");
-            else if(i == objetivoX && j == objetivoY)
-                printf(" G ");
-            else if(grid[i][j] == 1)
-                printf(" # ");
-            else if(caminho[i][j] == 1)
-                printf(" * ");
-            else
-                printf(" . ");
+void aEstrela(int sx, int sy, int gx, int gy) {
+    No nos[LINHAS][COLUNAS];
+    for (int i = 0; i < LINHAS; i++) {
+        for (int j = 0; j < COLUNAS; j++) {
+            nos[i][j].g = nos[i][j].f = INT_MAX;
+            nos[i][j].paiX = nos[i][j].paiY = -1;
+            nos[i][j].aberto = nos[i][j].fechado = 0;
+        }
+    }
+
+    nos[sx][sy].g = 0;
+    nos[sx][sy].f = nos[sx][sy].h = manhattan(sx, sy, gx, gy);
+    nos[sx][sy].paiX = sx; nos[sx][sy].paiY = sy;
+    nos[sx][sy].aberto = 1;
+
+    // ORDEM DE EXPLORAÇÃO: Essencial para o desenho da imagem
+    int dx[4] = {0, 1, 0, -1}; 
+    int dy[4] = {1, 0, -1, 0};
+
+    while (1) {
+        int x = -1, y = -1, menorF = INT_MAX;
+        for (int i = 0; i < LINHAS; i++) {
+            for (int j = 0; j < COLUNAS; j++) {
+                if (nos[i][j].aberto && !nos[i][j].fechado && nos[i][j].f < menorF) {
+                    menorF = nos[i][j].f; x = i; y = j;
+                }
+            }
+        }
+
+        if (x == -1 || (x == gx && y == gy)) {
+            if (x != -1) reconstruir(nos, gx, gy);
+            return;
+        }
+
+        nos[x][y].aberto = 0; nos[x][y].fechado = 1;
+
+        for (int k = 0; k < 4; k++) {
+            int nx = x + dx[k], ny = y + dy[k];
+            if (nx>=0 && nx<LINHAS && ny>=0 && ny<COLUNAS && grid[nx][ny]==0 && !nos[nx][ny].fechado) {
+                int novoG = nos[x][y].g + 1;
+                // O uso do <= permite que ele prefira a última direção explorada (ajuda no zigue-zague)
+                if (!nos[nx][ny].aberto || novoG <= nos[nx][ny].g) {
+                    nos[nx][ny].g = novoG;
+                    nos[nx][ny].f = novoG + manhattan(nx, ny, gx, gy);
+                    nos[nx][ny].paiX = x; nos[nx][ny].paiY = y;
+                    nos[nx][ny].aberto = 1;
+                }
+            }
+        }
+    }
+}
+
+void imprimir(int sx, int sy, int gx, int gy) {
+    printf("Mapa do armazem:\n\n");
+    for (int i = 0; i < LINHAS; i++) {
+        for (int j = 0; j < COLUNAS; j++) {
+            if (i == sx && j == sy) printf(" S ");
+            else if (i == gx && j == gy) printf(" G ");
+            else if (grid[i][j] == 1) printf(" # ");
+            else if (caminho[i][j] == 1) printf(" * ");
+            else printf(" . ");
         }
         printf("\n");
     }
 }
 
-int main(){
+int main() {
 
-    int inicioX = 0;
-    int inicioY = 0;
+    // Bloco da esquerda
+    grid[1][2] = 1; grid[2][2] = 1; grid[3][2] = 1;
+    // Bloco central (dividido para permitir a passagem no meio)
+    grid[4][4] = 1; grid[5][4] = 1; grid[6][4] = 1; // Parede esquerda do centro
+    grid[3][7] = 1; grid[4][7] = 1; grid[5][7] = 1; // Parede direita do centro
+    // Bloco da direita
+    grid[7][10] = 1; grid[8][10] = 1; grid[9][10] = 1;
 
-    int objetivoX = 10;
-    int objetivoY = 14;
-
-    int caminho[LINHAS][COLUNAS] = {0};
-
-    /* Obstáculos (prateleiras) */
-
-    grid[1][2] = 1;
-    grid[2][2] = 1;
-    grid[3][2] = 1;
-
-    grid[4][5] = 1;
-    grid[5][5] = 1;
-    grid[6][5] = 1;
-
-    grid[3][8] = 1;
-    grid[4][8] = 1;
-    grid[5][8] = 1;
-
-    grid[7][11] = 1;
-    grid[8][11] = 1;
-    grid[9][11] = 1;
-
-    /* Caminho da figura (trajeto verde) */
-
-    caminho[0][1] = 1;
-    caminho[0][2] = 1;
-    caminho[0][3] = 1;
-    caminho[0][4] = 1;
-
-    caminho[1][4] = 1;
-    caminho[2][4] = 1;
-
-    caminho[2][5] = 1;
-    caminho[2][6] = 1;
-    caminho[2][7] = 1;
-
-    caminho[3][7] = 1;
-    caminho[4][7] = 1;
-    caminho[5][7] = 1;
-
-    caminho[6][7] = 1;
-    caminho[6][8] = 1;
-    caminho[6][9] = 1;
-
-    caminho[7][9] = 1;
-    caminho[8][9] = 1;
-
-    caminho[9][9] = 1;
-    caminho[10][9] = 1;
-
-    caminho[10][10] = 1;
-    caminho[10][11] = 1;
-    caminho[10][12] = 1;
-    caminho[10][13] = 1;
-
-    printf("Algoritmo A* - Planejamento de Caminho em Armazem\n");
-
-    imprimirMapa(caminho, inicioX, inicioY, objetivoX, objetivoY);
-
-    printf("\nCaminho encontrado!\n");
-
+    aEstrela(0, 0, 10, 14);
+    imprimir(0, 0, 10, 14);
     return 0;
 }
